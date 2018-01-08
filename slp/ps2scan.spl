@@ -1,0 +1,12 @@
+[Inputs]
+clk
+rst
+ps2k_clk
+ps2k_data
+[Outputs]
+ps2_state
+=ps2_byte[7:0]=
+[BiDir]
+[ATTRIBUTES]
+VeriModel ps2scan
+
