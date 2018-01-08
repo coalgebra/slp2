@@ -105,8 +105,6 @@ module Top(
 	reg [9:0] xx = 10'd120;
 	reg [8:0] yy = 9'd120;
 
-
-
 	wire move_clk;
 	assign move_clk = clkdiv[19];
 
@@ -160,9 +158,12 @@ module Top(
 
 	reg [10:0] bomb_speed = 7;
 	reg [11:0] bomb_stop_counter;
-	reg [10:0] gift_x;
-	reg [9:0]  gift_y;
-	reg 		  gift_exist;
+	reg [10:0] 	gift_x;
+	reg [9:0]  	gift_y;
+	reg 		gift_exist;
+	reg [10:0] gift_speed;
+	reg [1:0] gift_speed_dir; // dir[0] : x, dir[1] : y
+	integer high_score = 0;
 	
 	wire [10:0] blocker_true_speed;
 	assign blocker_true_speed = (blocker_speed + level);
@@ -171,16 +172,45 @@ module Top(
 		begin
 			gift_exist <= 1;
 			gift_x <= 640;
-			gift_y <= (clkdiv % 200) + 120;
+			gift_y <= (clkdiv % 360) + 120;
+			gift_speed <= 5;
+			gift_speed_dir <= ((clkdiv % 5) > 2);
 		end
 	endtask
 	
 	task move_gift;
 		begin
-			if (gift_x < blocker_true_speed)
-				gift_exist <= 0;
-			else
-				gift_x <= gift_x - blocker_true_speed;
+			if (gift_speed_dir[0]) begin
+				if (gift_x + GIFT_RADIUS + gift_speed > 640) begin
+					gift_x <= 640 - GIFT_RADIUS;
+					gift_speed_dir[0] <= 0;
+				end else begin
+					gift_x <= gift_x + gift_speed;
+				end
+			end else begin
+				if (gift_x < gift_speed) begin
+					gift_x <= 0;
+					gift_speed_dir[0] <= 1;
+				end else begin
+					gift_x <= gift_x - gift_speed;
+				end
+			end
+			
+			if (gift_speed_dir[1]) begin
+				if (gift_y + GIFT_RADIUS + gift_speed > 480) begin
+					gift_y <= 480 - GIFT_RADIUS;
+					gift_speed_dir[1] <= 0;
+				end else begin
+					gift_y <= gift_y + gift_speed;
+				end
+			end else begin
+				if (gift_y < gift_speed) begin
+					gift_y <= 0;
+					gift_speed_dir[1] <= 1;
+				end else begin
+					gift_y <= gift_y - gift_speed;
+				end
+			end
 		end
 	endtask
 	
@@ -200,7 +230,7 @@ module Top(
 				: ((xx + RADIUS + BOMB_GEN_RANGE> 640) 
 					? (clkdiv % (640 - xx + BOMB_GEN_RANGE) + xx - BOMB_GEN_RANGE)
 					: (xx - BOMB_GEN_RANGE + (clkdiv % (BOMB_GEN_RANGE * 2))));
-			bomb_y <= 480;
+			bomb_y <= 480 - BOMB_RADIUS;
 			bomb_speed <= 7 + level;
 		end
 	endtask
@@ -210,21 +240,16 @@ module Top(
 			if (|bomb_stop_counter) 
 				bomb_stop_counter <= bomb_stop_counter - 1;
 			else begin
-				if (bomb_y < bomb_speed + HORIZON_HEIGHT) begin
+				if (bomb_y < bomb_speed) begin
 					bomb_initialize();
-				end else
+				end else begin
 					bomb_y <= bomb_y - bomb_speed;
+					if (clkdiv % 17 > 8) begin
+						if (xx > bomb_x + BOMB_RADIUS) bomb_x <= bomb_x + 2;
+						else if (xx + RADIUS < bomb_x) bomb_x <= bomb_x - 2;
+					end
+				end
 			end
-		end
-	endtask
-
-	task adjust_bomb_speed;
-		begin
-			/*if (|bomb_stop_counter) 
-				bomb_speed <= 0;
-			else begin
-				bomb_speed <= bomb_speed + G;
-			end*/
 		end
 	endtask
 
@@ -293,15 +318,17 @@ module Top(
 			end
 		end
 	endtask
+	
+	reg [31:0] timer;
 
 	task adjust_level;
 
 		begin
-			if (score > 24000) level <= 5;
-			else if (score > 18000) level <= 4;
-			else if (score > 12000) level <= 3;
-			else if (score > 6000) level <= 2;
-			else if (score > 2000) level <= 1;
+			if (timer > 5000) level <= 5;
+			else if (timer > 4000) level <= 4;
+			else if (timer > 3000) level <= 3;
+			else if (timer > 2000) level <= 2;
+			else if (timer > 1000) level <= 1;
 		end
 
 	endtask
@@ -310,16 +337,16 @@ module Top(
 	
 	wire intersect_with_blocker_flag;
 	assign intersect_with_blocker_flag = 
-				((blocker_position[0] < xx + RADIUS - 4) &&
-				(blocker_position[0] + BLOCKER_WIDTH > xx + 4) &&
+				((blocker_position[0] < xx + RADIUS - 5) &&
+				(blocker_position[0] + BLOCKER_WIDTH > xx + 5) &&
 				(yy < blocker_height[0] + 120));
 				
 	wire intersect_with_bomb_flag;
 	assign intersect_with_bomb_flag = 
 				(xx + RADIUS - 4 > bomb_x &&
-				 xx + 4 < bomb_x + RADIUS + BOMB_RADIUS &&
+				 xx + 4 < bomb_x + BOMB_RADIUS &&
 				 yy + RADIUS - 4 > bomb_y &&
-				 yy + 4 < bomb_y + RADIUS + BOMB_RADIUS);
+				 yy + 4 < bomb_y + BOMB_RADIUS);
 
 	task initialization;
 		begin
@@ -335,6 +362,7 @@ module Top(
 			level 		<= 0;
 			hor_speed   <= 0;
 			hor_speed_dir 	<= 0;
+			timer 		<= 0;
 			sugata_counter <= 0;
 			test_init_blocker();
 		end
@@ -457,22 +485,36 @@ module Top(
 			RUN_MODE: begin
 					move_counter <= move_counter + 1;
 					if (&move_counter) begin
+						timer <= timer + 1;
 						adjust_level();
 						move_background();
 						jump_counter <= jump_counter + 1;
-						score <= score + (1 + level);
 						if (&jump_counter) begin
+							score <= score + (1 + level);
 							sugata_flag <= sugata_flag + 1;
 							if (|sugata_flag) begin
 								sugata_counter <= sugata_counter + 1;
 							end
 							move_blocker();
 							move_bomb();
-							adjust_bomb_speed();
+							//adjust_bomb_speed();
 							check_jump_over();
+							if (!gift_exist && ((clkdiv % 1007) < 2)) 
+								gift_initialize();
+							if (gift_exist) begin
+								move_gift();
+								if (intersect_with_gift_flag) begin
+									gift_exist <= 0;
+									score <= score + 1000 * (level + 1);
+									jump_speed <= jump_speed + 1;
+								end
+							end
 							begin
 								if (intersect_with_blocker_flag || intersect_with_bomb_flag) begin
 									game_mode <= FAIL_MODE;
+									gift_exist <= 0;
+									if (score > high_score) 
+										high_score <= score;
 								end else begin
 									if (((speed_dir == 1) &&
 										((speed > jump_speed * 2) 	||
@@ -516,6 +558,9 @@ module Top(
 	wire [23:0] temp8;
 	wire [23:0] temp9;
 	wire [23:0] tempa;
+	wire [23:0] tempb;
+	wire [23:0] tempc;
+	wire [23:0] tempd;
 
 	wire [10:0] calculated_x;
 	assign calculated_x = (col_addr + x_offset) % 640;
@@ -534,6 +579,7 @@ module Top(
 	  .addra({inv_y * 20 + (640 - blocker_position[0] + col_addr) % 20}), // input [12 : 0] addra
 	  .douta(temp4) // output [23 : 0] douta
 	);
+
 
 	wire [10:0] blocker_delta_y;
 	assign blocker_delta_y = row_addr - (360 - blocker_height[0]);
@@ -556,6 +602,22 @@ module Top(
 	  .douta(temp9) // output [23 : 0] douta
 	);
 
+	wire [11:0] score_number_addr;
+	assign score_number_addr = 
+		(row_addr > 540 && row_addr < 550) ? (score_100000 	* 10 + row_addr - 540 + (col_addr - 20) * 100) : (
+		(row_addr > 550 && row_addr < 560) ? (score_10000 	* 10 + row_addr - 550 + (col_addr - 20) * 100) : (
+		(row_addr > 560 && row_addr < 570) ? (score_1000 	* 10 + row_addr - 560 + (col_addr - 20) * 100) : (
+		(row_addr > 570 && row_addr < 580) ? (score_100 	* 10 + row_addr - 570 + (col_addr - 20) * 100) : (
+		(row_addr > 580 && row_addr < 690) ? (score_10 		* 10 + row_addr - 580 + (col_addr - 20) * 100) : (
+		(row_addr > 590 && row_addr < 600) ? (score_1 		* 10 + row_addr - 590 + (col_addr - 20) * 100) : (0))))));
+
+	
+	numbersip number_instance (
+	  .clka(clkdiv[1]), // input clka
+	  .addra(score_number_addr), // input [11 : 0] addra
+	  .douta(tempc) // output [23 : 0] douta
+	);
+
 	wire [11:0] pic_data;
 	wire [11:0] pic_data2;
 	wire [11:0] player_data;
@@ -566,6 +628,9 @@ module Top(
 	wire [11:0]	title_data;
 	wire [11:0] gameover_data;
 	wire [11:0] bomb_data;
+	wire [11:0] gift_data;
+	wire [11:0] score_board_number_data;
+	wire [11:0] score_board_title_data;
 
 	assign pic_data =  			{temp [7:4], temp [15:12], temp [23:20]};
 	assign pic_data2 = 			{temp2[7:4], temp2[15:12], temp2[23:20]};
@@ -576,7 +641,10 @@ module Top(
 	assign player_right_data = 	{temp7[7:4], temp7[15:12], temp7[23:20]};
 	assign title_data = 		{temp8[7:4], temp8[15:12], temp8[23:20]};
 	assign gameover_data = 		{temp9[7:4], temp9[15:12], temp9[23:20]};
-	assign bomb_data = {tempa[7:4], tempa[15:12], tempa[23:20]};
+	assign bomb_data = 			{tempa[7:4], tempa[15:12], tempa[23:20]};
+	assign gift_data = 			{tempb[7:4], tempb[15:12], tempb[23:20]};
+	assign score_board_number_data = {tempc[7:4], tempc[15:12], tempc[23:20]};
+	assign score_board_title_data  = {tempd[7:4], tempd[15:12], tempd[23:20]};
 
 	wire [9:0] delta_x;
 	wire [8:0] delta_y;
@@ -592,8 +660,14 @@ module Top(
 	
 	bombip bomb_instance (
 	  .clka(clkdiv[1]), // input clka
-	  .addra({(row_addr - (480 - bomb_y - BOMB_RADIUS)) * BOMB_RADIUS + (col_addr - xx)}), // input [10 : 0] addra
+	  .addra({(row_addr - (480 - bomb_y - BOMB_RADIUS)) * BOMB_RADIUS + (col_addr - bomb_x)}), // input [10 : 0] addra
 	  .douta(tempa) // output [23 : 0] douta
+	);
+	
+	giftip gift_instance (
+	  .clka(clkdiv[1]), // input clka
+	  .addra({(row_addr - (480 - gift_y - BOMB_RADIUS)) * BOMB_RADIUS + (col_addr - gift_x)}), // input [10 : 0] addra
+	  .douta(tempb) // output [23 : 0] douta
 	);
 
 	player_left left_player_instance (
@@ -612,7 +686,7 @@ module Top(
 
 	wire [11:0] player_true_data;
 	assign player_true_data =
-		(sugata_counter == 0 || sugata_counter == 2'b10) ?
+		(sugata_counter == 0 || sugata_counter == 2'b10 || yy != HORIZON_HEIGHT) ?
 			player_data :
 			((sugata_counter == 2'b01) ?
 				player_left_data :
@@ -620,54 +694,85 @@ module Top(
 	
 	wire [11:0] vga_true_data;
 	
+	wire horizon_data_flag;
+	wire title_data_flag;
+	wire gameover_data_flag;
+	wire bomb_data_flag;
+	wire player_data_flag;
+	wire blocker_data_flag;
+	wire gift_data_flag;
+	wire score_board_number_data_flag;
+	
+	assign title_data_flag = 
+			((game_mode == START_MODE) 	&& 
+		   (col_addr > 162) 			&& 
+		   (col_addr < 478) 			&& 
+		   (row_addr > 100) 			&& 
+		   (row_addr < 200) 			&& 
+		   (title_data != 12'b1111_0000_0000));
+	
+	assign horizon_data_flag = (row_addr >= 480 - HORIZON_HEIGHT);
+	
+	assign gameover_data_flag = 
+		((game_mode == FAIL_MODE) 	&&
+		(col_addr > 152) 			&&
+		(col_addr < 488) 			&&
+		(row_addr > 124) 			&&
+		(row_addr < 200) 			&&
+		(gameover_data != 12'b1111_0000_0000));
+	
+	assign bomb_data_flag = (col_addr > bomb_x) 	&&
+		(col_addr < bomb_x + BOMB_RADIUS) 			&&
+		(row_addr > 480 - bomb_y - BOMB_RADIUS) 	&&
+		(row_addr < 480 - bomb_y) 					&&
+		(game_mode != START_MODE) 					&&
+		(bomb_data != 12'b1111_0000_0000);
+	
+	assign gift_data_flag = (col_addr > gift_x) 	&&
+		(col_addr < gift_x + GIFT_RADIUS) 			&&
+		(row_addr > 480 - gift_y - GIFT_RADIUS) 	&&
+		(row_addr < 480 - gift_y) 					&&
+		(game_mode != START_MODE) 					&&
+		(gift_exist == 1)							&&
+		(gift_data != 12'b1111_0000_0000);
+	
+	assign blocker_data_flag = 
+		(((col_addr < blocker_position[0] + BLOCKER_WIDTH + 1) 	&&
+		(col_addr > blocker_position[0]) 						&&
+		(row_addr < 360) 										&&
+		(row_addr > 360 - blocker_height[0] - 1)) 				&& 
+		blocker_data != 12'b1111_1111_1111);
+	
+	assign player_data_flag = 
+		((col_addr > xx) 					&&
+		(col_addr < xx + RADIUS) 			&&
+		(row_addr < (480 - yy)) 			&&
+		(row_addr > (440 - yy))) 			&& 
+		player_true_data != 12'b1111_1111_1111;
+
+	assign score_board_number_data_flag = 
+		(col_addr > 540) 	&&
+		(col_addr < 600)	&&
+		(row_addr > 20)		&&
+		(row_addr < 40)		&&
+		(score_board_number_data != 12'b1111_0000_0000);
+
 	assign vga_true_data = 
-		(row_addr >= 360) 
-		? horizon_data 
-		: (((game_mode == START_MODE) && 
-		   (col_addr > 162) && 
-		   (col_addr < 478) && 
-		   (row_addr > 100) && 
-		   (row_addr < 200) && 
-		   (title_data != 12'b1111_0000_0000)) 
-			? title_data 
-			: (((game_mode == FAIL_MODE) &&
-				(col_addr > 152) &&
-				(col_addr < 488) &&
-				(row_addr > 124) &&
-				(row_addr < 200) &&
-				(gameover_data != 12'b1111_0000_0000)) 
-				? gameover_data
-				: ((col_addr > bomb_x) &&
-					(col_addr < bomb_x + BOMB_RADIUS) &&
-					(row_addr < 480 - bomb_y + BOMB_RADIUS) &&
-					(row_addr > 480 - bomb_y) &&
-					(game_mode != START_MODE) &&
-					(bomb_data != 12'b1111_0000_0000)
-					? bomb_data
-					: (((((col_addr < blocker_position[0] + BLOCKER_WIDTH + 1) &&
-						(col_addr > blocker_position[0]) &&
-						(row_addr < 360) &&
-						(row_addr > 360 - blocker_height[0] - 1)) && blocker_data != 12'b1111_1111_1111)
-						? blocker_data
-						: (((col_addr > xx) 			&&
-							(col_addr < xx + RADIUS) 	&&
-							(row_addr < (480 - yy)) 	&&
-							(row_addr > (440 - yy)))
-							? (((yy == HORIZON_HEIGHT) 
-								? ((player_true_data == 12'b1111_1111_1111)
-									? pic_data
-									: player_true_data)
-								: ((player_data == 12'b1111_1111_1111)
-									? pic_data
-									: player_data)))
-							: pic_data))))));
+		score_board_number_data_flag ? score_board_number_data : (
+		gift_data_flag			? gift_data			: (
+		horizon_data_flag		? horizon_data 		: (
+		title_data_flag 		? title_data 		: (
+		gameover_data_flag 		? gameover_data 	: (
+		bomb_data_flag			? bomb_data			: (
+		blocker_data_flag		? blocker_data		: (
+		player_data_flag 		? player_true_data	: pic_data)))))));
 			
 	
 	always @(posedge clkdiv[1]) begin
 		vga_data <= vga_true_data;
 	end
 
-	wire [3:0] score_0;
+	wire [3:0] score_1;
 	wire [3:0] score_10;
 	wire [3:0] score_100;
 	wire [3:0] score_1000;
@@ -676,7 +781,7 @@ module Top(
 	wire [3:0] score_1000000;
 	wire [3:0] score_10000000;
 
-	assign score_0 = score % 10;
+	assign score_1 = score % 10;
 	assign score_10 = (score % 100) / 10;
 	assign score_100 = (score % 1000) / 100;
 	assign score_1000 = (score % 10000) / 1000;
@@ -694,7 +799,7 @@ module Top(
 		score_1000,
 		score_100,
 		score_10,
-		score_0
+		score_1
 	};
 	wire [15:0] ledData;
 	assign ledData = {key_ready, 12'b0, game_mode, intersect_flag};
