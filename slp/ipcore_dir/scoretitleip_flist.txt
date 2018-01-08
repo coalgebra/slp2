@@ -26,8 +26,6 @@ scoretitleip\implement\xst.scr
 scoretitleip\simulation\addr_gen.vhd
 scoretitleip\simulation\bmg_stim_gen.vhd
 scoretitleip\simulation\bmg_tb_pkg.vhd
-scoretitleip\simulation\checker.vhd
-scoretitleip\simulation\data_gen.vhd
 scoretitleip\simulation\functional\simcmds.tcl
 scoretitleip\simulation\functional\simulate_isim.bat
 scoretitleip\simulation\functional\simulate_mti.bat

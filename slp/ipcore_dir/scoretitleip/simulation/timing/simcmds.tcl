@@ -56,8 +56,6 @@ isim set radix hex
 wave add /scoretitleip_tb/status
       wave add  /scoretitleip_tb/scoretitleip_synth_inst/BMG_PORT/CLKA
       wave add  /scoretitleip_tb/scoretitleip_synth_inst/BMG_PORT/ADDRA
-      wave add  /scoretitleip_tb/scoretitleip_synth_inst/BMG_PORT/DINA
-      wave add  /scoretitleip_tb/scoretitleip_synth_inst/BMG_PORT/WEA
       wave add  /scoretitleip_tb/scoretitleip_synth_inst/BMG_PORT/DOUTA
 run all
 quit

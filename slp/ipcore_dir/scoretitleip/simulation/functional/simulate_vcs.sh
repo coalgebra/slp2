@@ -54,10 +54,7 @@ vhdlan  ../../example_design/scoretitleip_exdes.vhd
 
 echo "Compiling Test Bench Files"
 vhdlan    ../bmg_tb_pkg.vhd
-vhdlan    ../random.vhd
-vhdlan    ../data_gen.vhd
 vhdlan    ../addr_gen.vhd
-vhdlan    ../checker.vhd
 vhdlan    ../bmg_stim_gen.vhd
 vhdlan    ../scoretitleip_synth.vhd 
 vhdlan    ../scoretitleip_tb.vhd

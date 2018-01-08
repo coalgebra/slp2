@@ -38,16 +38,12 @@
 
 module scoretitleip(
   clka,
-  wea,
   addra,
-  dina,
   douta
 );
 
 input clka;
-input [0 : 0] wea;
 input [10 : 0] addra;
-input [23 : 0] dina;
 output [23 : 0] douta;
 
 // synthesis translate_off
@@ -86,7 +82,7 @@ output [23 : 0] douta;
     .C_INITB_VAL("0"),
     .C_INTERFACE_TYPE(0),
     .C_LOAD_INIT_FILE(1),
-    .C_MEM_TYPE(0),
+    .C_MEM_TYPE(3),
     .C_MUX_PIPELINE_STAGES(0),
     .C_PRIM_TYPE(1),
     .C_READ_DEPTH_A(1300),
@@ -117,13 +113,13 @@ output [23 : 0] douta;
   )
   inst (
     .CLKA(clka),
-    .WEA(wea),
     .ADDRA(addra),
-    .DINA(dina),
     .DOUTA(douta),
     .RSTA(),
     .ENA(),
     .REGCEA(),
+    .WEA(),
+    .DINA(),
     .CLKB(),
     .RSTB(),
     .ENB(),

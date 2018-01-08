@@ -561,11 +561,13 @@ module Top(
 	wire [23:0] tempb;
 	wire [23:0] tempc;
 	wire [23:0] tempd;
+	wire [23:0] tempe;
+	wire [23:0] tempf;
 
 	wire [10:0] calculated_x;
 	assign calculated_x = (col_addr + x_offset) % 640;
 
-	background2 your_instance_name (
+	background2 background_instance (
 	  .clka(clkdiv[1]), // input clka
 	  .addra({row_addr * 640 + calculated_x}), // input [18 : 0] addra
 	  .douta(temp) // output [23 : 0] douta
@@ -574,7 +576,7 @@ module Top(
 	wire [10:0] inv_y;
 	assign inv_y = row_addr - 360;
 
-	horizon horizon1 (
+	horizon horizon_instance (
 	  .clka(clkdiv[1]), // input clka
 	  .addra({inv_y * 20 + (640 - blocker_position[0] + col_addr) % 20}), // input [12 : 0] addra
 	  .douta(temp4) // output [23 : 0] douta
@@ -604,19 +606,41 @@ module Top(
 
 	wire [11:0] score_number_addr;
 	assign score_number_addr = 
-		(row_addr > 540 && row_addr < 550) ? (score_100000 	* 10 + row_addr - 540 + (col_addr - 20) * 100) : (
-		(row_addr > 550 && row_addr < 560) ? (score_10000 	* 10 + row_addr - 550 + (col_addr - 20) * 100) : (
-		(row_addr > 560 && row_addr < 570) ? (score_1000 	* 10 + row_addr - 560 + (col_addr - 20) * 100) : (
-		(row_addr > 570 && row_addr < 580) ? (score_100 	* 10 + row_addr - 570 + (col_addr - 20) * 100) : (
-		(row_addr > 580 && row_addr < 690) ? (score_10 		* 10 + row_addr - 580 + (col_addr - 20) * 100) : (
-		(row_addr > 590 && row_addr < 600) ? (score_1 		* 10 + row_addr - 590 + (col_addr - 20) * 100) : (0))))));
+		(col_addr > 540 && col_addr < 550) ? (score_100000 	* 10 + col_addr - 540 + (row_addr - 20) * 100) : (
+		(col_addr > 550 && col_addr < 560) ? (score_10000 	* 10 + col_addr - 550 + (row_addr - 20) * 100) : (
+		(col_addr > 560 && col_addr < 570) ? (score_1000 	* 10 + col_addr - 560 + (row_addr - 20) * 100) : (
+		(col_addr > 570 && col_addr < 580) ? (score_100 	* 10 + col_addr - 570 + (row_addr - 20) * 100) : (
+		(col_addr > 580 && col_addr < 590) ? (score_10 		* 10 + col_addr - 580 + (row_addr - 20) * 100) : (
+		(col_addr > 590 && col_addr < 600) ? (score_1 		* 10 + col_addr - 590 + (row_addr - 20) * 100) : (0))))));
 
-	
+	wire [11:0] high_score_number_addr;
+	assign high_score_number_addr = 
+		(col_addr > 420 && col_addr < 430) ? (high_score_100000 * 10 + col_addr - 420 + (row_addr - 20) * 100) : (
+		(col_addr > 430 && col_addr < 440) ? (high_score_10000 	* 10 + col_addr - 430 + (row_addr - 20) * 100) : (
+		(col_addr > 440 && col_addr < 450) ? (high_score_1000 	* 10 + col_addr - 440 + (row_addr - 20) * 100) : (
+		(col_addr > 450 && col_addr < 460) ? (high_score_100 	* 10 + col_addr - 450 + (row_addr - 20) * 100) : (
+		(col_addr > 460 && col_addr < 470) ? (high_score_10 	* 10 + col_addr - 460 + (row_addr - 20) * 100) : (
+		(col_addr > 470 && col_addr < 480) ? (high_score_1 		* 10 + col_addr - 470 + (row_addr - 20) * 100) : (0))))));
+		
 	numbersip number_instance (
 	  .clka(clkdiv[1]), // input clka
 	  .addra(score_number_addr), // input [11 : 0] addra
 	  .douta(tempc) // output [23 : 0] douta
 	);
+	
+	numbersip high_number_instance (
+		.clka(clkdiv[1]),
+		.addra(high_score_number_addr),
+		.douta(tempe)
+	);
+
+	scoretitleip score_title_instance (
+	  .clka(clkdiv[1]), // input clka
+	  .addra({(row_addr - 20) * 60 + col_addr - 480}), // input [10 : 0] addra
+	  .douta(tempd) // output [23 : 0] douta
+	);
+	
+	
 
 	wire [11:0] pic_data;
 	wire [11:0] pic_data2;
@@ -632,19 +656,19 @@ module Top(
 	wire [11:0] score_board_number_data;
 	wire [11:0] score_board_title_data;
 
-	assign pic_data =  			{temp [7:4], temp [15:12], temp [23:20]};
-	assign pic_data2 = 			{temp2[7:4], temp2[15:12], temp2[23:20]};
-	assign player_data = 		{temp3[7:4], temp3[15:12], temp3[23:20]};
-	assign horizon_data = 		{temp4[7:4], temp4[15:12], temp4[23:20]};
-	assign blocker_data = 		{temp5[7:4], temp5[15:12], temp5[23:20]};
-	assign player_left_data = 	{temp6[7:4], temp6[15:12], temp6[23:20]};
-	assign player_right_data = 	{temp7[7:4], temp7[15:12], temp7[23:20]};
-	assign title_data = 		{temp8[7:4], temp8[15:12], temp8[23:20]};
-	assign gameover_data = 		{temp9[7:4], temp9[15:12], temp9[23:20]};
-	assign bomb_data = 			{tempa[7:4], tempa[15:12], tempa[23:20]};
-	assign gift_data = 			{tempb[7:4], tempb[15:12], tempb[23:20]};
-	assign score_board_number_data = {tempc[7:4], tempc[15:12], tempc[23:20]};
-	assign score_board_title_data  = {tempd[7:4], tempd[15:12], tempd[23:20]};
+	assign pic_data =  					{temp [7:4], temp [15:12], temp [23:20]};
+	assign pic_data2 = 					{temp2[7:4], temp2[15:12], temp2[23:20]};
+	assign player_data = 				{temp3[7:4], temp3[15:12], temp3[23:20]};
+	assign horizon_data = 				{temp4[7:4], temp4[15:12], temp4[23:20]};
+	assign blocker_data = 				{temp5[7:4], temp5[15:12], temp5[23:20]};
+	assign player_left_data = 			{temp6[7:4], temp6[15:12], temp6[23:20]};
+	assign player_right_data = 			{temp7[7:4], temp7[15:12], temp7[23:20]};
+	assign title_data = 				{temp8[7:4], temp8[15:12], temp8[23:20]};
+	assign gameover_data = 				{temp9[7:4], temp9[15:12], temp9[23:20]};
+	assign bomb_data = 					{tempa[7:4], tempa[15:12], tempa[23:20]};
+	assign gift_data = 					{tempb[7:4], tempb[15:12], tempb[23:20]};
+	assign score_board_number_data = 	{tempc[7:4], tempc[15:12], tempc[23:20]};
+	assign score_board_title_data  = 	{tempd[7:4], tempd[15:12], tempd[23:20]};
 
 	wire [9:0] delta_x;
 	wire [8:0] delta_y;
@@ -686,11 +710,8 @@ module Top(
 
 	wire [11:0] player_true_data;
 	assign player_true_data =
-		(sugata_counter == 0 || sugata_counter == 2'b10 || yy != HORIZON_HEIGHT) ?
-			player_data :
-			((sugata_counter == 2'b01) ?
-				player_left_data :
-				player_right_data );
+		(sugata_counter == 0 || sugata_counter == 2'b10 || yy != HORIZON_HEIGHT) ? player_data :
+			((sugata_counter == 2'b01) ? player_left_data :	player_right_data );
 	
 	wire [11:0] vga_true_data;
 	
@@ -702,6 +723,7 @@ module Top(
 	wire blocker_data_flag;
 	wire gift_data_flag;
 	wire score_board_number_data_flag;
+	wire score_board_title_data_flag;
 	
 	assign title_data_flag = 
 			((game_mode == START_MODE) 	&& 
@@ -756,21 +778,37 @@ module Top(
 		(row_addr > 20)		&&
 		(row_addr < 40)		&&
 		(score_board_number_data != 12'b1111_0000_0000);
+		
+	assign score_board_title_data_flag = 
+		(col_addr > 480)	&&
+		(col_addr < 540)	&&
+		(row_addr > 20)		&&
+		(row_addr < 40)		&&
+		(score_board_title_data != 12'b1111_0000_0000);
 
 	assign vga_true_data = 
-		score_board_number_data_flag ? score_board_number_data : (
-		gift_data_flag			? gift_data			: (
-		horizon_data_flag		? horizon_data 		: (
-		title_data_flag 		? title_data 		: (
-		gameover_data_flag 		? gameover_data 	: (
-		bomb_data_flag			? bomb_data			: (
-		blocker_data_flag		? blocker_data		: (
-		player_data_flag 		? player_true_data	: pic_data)))))));
+		score_board_title_data_flag ? score_board_title_data 	: (
+		score_board_number_data_flag? score_board_number_data 	: (
+		gift_data_flag				? gift_data					: (
+		horizon_data_flag			? horizon_data 				: (
+		title_data_flag 			? title_data 				: (
+		gameover_data_flag 			? gameover_data 			: (
+		bomb_data_flag				? bomb_data					: (
+		blocker_data_flag			? blocker_data				: (
+		player_data_flag 			? player_true_data			: pic_data))))))));
 			
 	
 	always @(posedge clkdiv[1]) begin
 		vga_data <= vga_true_data;
 	end
+	
+	wire [3:0] high_score_1;
+	wire [3:0] high_score_10;
+	wire [3:0] high_score_100;
+	wire [3:0] high_score_1000;
+	wire [3:0] high_score_10000;
+	wire [3:0] high_score_100000;
+	wire [3:0] high_score_1000000;
 
 	wire [3:0] score_1;
 	wire [3:0] score_10;
@@ -781,20 +819,26 @@ module Top(
 	wire [3:0] score_1000000;
 	wire [3:0] score_10000000;
 
-	assign score_1 = score % 10;
-	assign score_10 = (score % 100) / 10;
-	assign score_100 = (score % 1000) / 100;
-	assign score_1000 = (score % 10000) / 1000;
-	assign score_10000 = (score % 100000) / 10000;
-	assign score_100000 = (score % 1000000) / 100000;
-	assign score_1000000 = (score % 10000000) / 1000000;
-	assign score_10000000 = (score % 100000000) / 10000000;
+	assign score_1 			=  score % 10;
+	assign score_10 		= (score % 100		) / 10;
+	assign score_100 		= (score % 1000		) / 100;
+	assign score_1000 		= (score % 10000	) / 1000;
+	assign score_10000 		= (score % 100000	) / 10000;
+	assign score_100000 	= (score % 1000000	) / 100000;
+	assign score_1000000 	= (score % 10000000	) / 1000000;
+	assign score_10000000 	= (score % 100000000) / 10000000;
+
+	assign high_score_1 		=  high_score % 10;
+	assign high_score_10 		= (high_score % 100		) / 10;
+	assign high_score_100 		= (high_score % 1000	) / 100;
+	assign high_score_1000 		= (high_score % 10000	) / 1000;
+	assign high_score_10000 	= (high_score % 100000	) / 10000;
+	assign high_score_100000 	= (high_score % 1000000	) / 100000;
+	assign high_score_1000000 	= (high_score % 10000000) / 1000000;
 
 	assign segTestData = {
 		level,
-		//score_1000000,
 		key_code,
-		//score_100000,
 		score_10000,
 		score_1000,
 		score_100,

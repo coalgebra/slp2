@@ -49,9 +49,7 @@
 //----------- Begin Cut here for INSTANTIATION Template ---// INST_TAG
 scoretitleip your_instance_name (
   .clka(clka), // input clka
-  .wea(wea), // input [0 : 0] wea
   .addra(addra), // input [10 : 0] addra
-  .dina(dina), // input [23 : 0] dina
   .douta(douta) // output [23 : 0] douta
 );
 // INST_TAG_END ------ End INSTANTIATION Template ---------

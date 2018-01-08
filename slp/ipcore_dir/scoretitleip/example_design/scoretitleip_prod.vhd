@@ -82,7 +82,7 @@
 --    C_AXI_TYPE                  :  1 
 --    C_AXI_SLAVE_TYPE            :  0 
 --    C_AXI_ID_WIDTH              :  4 
---    C_MEM_TYPE                  :  0 
+--    C_MEM_TYPE                  :  3 
 --    C_BYTE_SIZE                 :  9 
 --    C_ALGORITHM                 :  1 
 --    C_PRIM_TYPE                 :  1 
@@ -232,11 +232,7 @@ ARCHITECTURE xilinx OF scoretitleip_prod IS
   COMPONENT scoretitleip_exdes IS
   PORT (
       --Port A
-  
-    WEA            : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
     ADDRA          : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-  
-    DINA           : IN STD_LOGIC_VECTOR(23 DOWNTO 0);
   
     DOUTA          : OUT STD_LOGIC_VECTOR(23 DOWNTO 0);
 
@@ -253,11 +249,7 @@ BEGIN
   bmg0 : scoretitleip_exdes
     PORT MAP (
       --Port A
-  
-      WEA        => WEA,
       ADDRA      => ADDRA,
-  
-      DINA       => DINA,
   
       DOUTA      => DOUTA,
 
