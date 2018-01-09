@@ -138,7 +138,7 @@ module Top(
 
 	reg [10:0] x_offset = 0;
 
-	reg [2:0] djmp_flag = 1;
+	reg [10:0] jump_times = 1;
 
 	reg [2:0] blocker_number;
 	reg [10:0] blocker_height [7:0]; // 2^15 / 8 = 2^12 ?��?????position
@@ -163,6 +163,9 @@ module Top(
 	reg 		gift_exist;
 	reg [10:0] gift_speed;
 	reg [1:0] gift_speed_dir; // dir[0] : x, dir[1] : y
+	
+	reg [10:0] gift_pickup_counter;
+	
 	integer high_score = 0;
 	
 	wire [10:0] blocker_true_speed;
@@ -173,7 +176,7 @@ module Top(
 			gift_exist <= 1;
 			gift_x <= 640;
 			gift_y <= (clkdiv % 360) + 120;
-			gift_speed <= 5;
+			gift_speed <= 10;
 			gift_speed_dir <= ((clkdiv % 5) > 2);
 		end
 	endtask
@@ -266,7 +269,7 @@ module Top(
 	task move_blocker;
 		if (blocker_position[0] < blocker_true_speed) begin
 			blocker_position[0] <= 640;
-			blocker_height[0] <= (clkdiv % (40 + 40 * (level / 2))) + 40 + 10 * level;
+			blocker_height[0] <= (clkdiv % (60 + 60 * (level / 2))) + 40;
 		end
 		else
 			blocker_position[0] <= blocker_position[0] - blocker_true_speed;
@@ -281,7 +284,7 @@ module Top(
 			speed <= 0;
 			speed_dir <= 0;
 			yy <= HORIZON_HEIGHT;
-			djmp_flag <= (1 + (level / 2));
+			jump_times <= (1 + (level / 2) + gift_pickup_counter);
 		end
 	endtask
 
@@ -354,7 +357,7 @@ module Top(
 			yy 			<= HORIZON_HEIGHT;
 			speed 		<= 0;
 			speed_dir 	<= 0;
-			djmp_flag 	<= 1'b1;
+			jump_times 	<= 1'b1;
 			G 			<= 1;
 			jump_speed 	<= 12;
 			score 		<= 0;
@@ -364,6 +367,7 @@ module Top(
 			hor_speed_dir 	<= 0;
 			timer 		<= 0;
 			sugata_counter <= 0;
+			gift_pickup_counter <= 0;
 			test_init_blocker();
 		end
 	endtask
@@ -383,6 +387,7 @@ module Top(
 		time_counter <= time_counter + 1;
 		if (!rstn) begin
 			initialization();
+			high_score <= 0;
 		end 
 		else begin
 			wasReady <= keyReady;
@@ -404,6 +409,7 @@ module Top(
 							game_mode <= START_MODE;
 							initialization();
 							bomb_initialize();
+							gift_exist <= 0;
 						end
 						START_MODE: game_mode <= RUN_MODE;
 						default:;
@@ -413,8 +419,8 @@ module Top(
 						if (yy == HORIZON_HEIGHT) begin
 							speed <= jump_speed;
 							speed_dir <= 0;
-						end else if (|djmp_flag) begin
-							djmp_flag <= djmp_flag - 1;
+						end else if (|jump_times) begin
+							jump_times <= jump_times - 1;
 							speed <= jump_speed;
 							speed_dir <= 0;
 						end
@@ -461,8 +467,8 @@ module Top(
 								if (yy == HORIZON_HEIGHT) begin
 									speed <= jump_speed;
 									speed_dir <= 0;
-								end else if (|djmp_flag) begin
-									djmp_flag <= djmp_flag - 1;
+								end else if (|jump_times) begin
+									jump_times <= jump_times - 1;
 									speed <= jump_speed;
 									speed_dir <= 0;
 								end
@@ -491,22 +497,25 @@ module Top(
 						jump_counter <= jump_counter + 1;
 						if (&jump_counter) begin
 							score <= score + (1 + level);
+							
+							high_score <= (score > high_score) ? score : high_score;
+							
 							sugata_flag <= sugata_flag + 1;
 							if (|sugata_flag) begin
 								sugata_counter <= sugata_counter + 1;
 							end
 							move_blocker();
 							move_bomb();
-							//adjust_bomb_speed();
 							check_jump_over();
-							if (!gift_exist && ((clkdiv % 1007) < 2)) 
+							if (!gift_exist && ((clkdiv % 10007) < 6)) 
 								gift_initialize();
 							if (gift_exist) begin
 								move_gift();
 								if (intersect_with_gift_flag) begin
 									gift_exist <= 0;
-									score <= score + 1000 * (level + 1);
-									jump_speed <= jump_speed + 1;
+									score <= score + 500 * (level + 1);
+									gift_pickup_counter <= gift_pickup_counter + 1;
+									//jump_speed <= jump_speed + 1;
 								end
 							end
 							begin
@@ -563,6 +572,7 @@ module Top(
 	wire [23:0] tempd;
 	wire [23:0] tempe;
 	wire [23:0] tempf;
+	wire [23:0] tempg;
 
 	wire [10:0] calculated_x;
 	assign calculated_x = (col_addr + x_offset) % 640;
@@ -615,23 +625,34 @@ module Top(
 
 	wire [11:0] high_score_number_addr;
 	assign high_score_number_addr = 
-		(col_addr > 420 && col_addr < 430) ? (high_score_100000 * 10 + col_addr - 420 + (row_addr - 20) * 100) : (
-		(col_addr > 430 && col_addr < 440) ? (high_score_10000 	* 10 + col_addr - 430 + (row_addr - 20) * 100) : (
-		(col_addr > 440 && col_addr < 450) ? (high_score_1000 	* 10 + col_addr - 440 + (row_addr - 20) * 100) : (
-		(col_addr > 450 && col_addr < 460) ? (high_score_100 	* 10 + col_addr - 450 + (row_addr - 20) * 100) : (
-		(col_addr > 460 && col_addr < 470) ? (high_score_10 	* 10 + col_addr - 460 + (row_addr - 20) * 100) : (
-		(col_addr > 470 && col_addr < 480) ? (high_score_1 		* 10 + col_addr - 470 + (row_addr - 20) * 100) : (0))))));
-		
+		(col_addr > 380 && col_addr < 390) ? (high_score_100000 * 10 + col_addr - 380 + (row_addr - 20) * 100) : (
+		(col_addr > 390 && col_addr < 400) ? (high_score_10000 	* 10 + col_addr - 390 + (row_addr - 20) * 100) : (
+		(col_addr > 400 && col_addr < 410) ? (high_score_1000 	* 10 + col_addr - 400 + (row_addr - 20) * 100) : (
+		(col_addr > 410 && col_addr < 420) ? (high_score_100 	* 10 + col_addr - 410 + (row_addr - 20) * 100) : (
+		(col_addr > 420 && col_addr < 430) ? (high_score_10 	* 10 + col_addr - 420 + (row_addr - 20) * 100) : (
+		(col_addr > 430 && col_addr < 440) ? (high_score_1 		* 10 + col_addr - 430 + (row_addr - 20) * 100) : (0))))));
+	
+	wire [11:0] jump_times_number_addr;
+	assign jump_times_number_addr = 
+		(col_addr > 40 && col_addr < 50) ? (jump_times_10* 10 + col_addr - 40 + (row_addr - 420) * 100) : (
+		(col_addr > 50 && col_addr < 60) ? (jump_times_1 *10 + col_addr - 50 + (row_addr - 420) * 100) : 0);
+
 	numbersip number_instance (
 	  .clka(clkdiv[1]), // input clka
 	  .addra(score_number_addr), // input [11 : 0] addra
 	  .douta(tempc) // output [23 : 0] douta
 	);
 	
-	numbersip high_number_instance (
+	numbersip high_score_instance (
 		.clka(clkdiv[1]),
 		.addra(high_score_number_addr),
 		.douta(tempe)
+	);
+	
+	numbersip jump_times_instance (
+		.clka(clkdiv[1]),
+		.addra(jump_times_number_addr),
+		.douta(tempg)
 	);
 
 	scoretitleip score_title_instance (
@@ -640,8 +661,12 @@ module Top(
 	  .douta(tempd) // output [23 : 0] douta
 	);
 	
+	highscoreip high_score_title_instance (
+		.clka(clkdiv[1]),
+		.addra({(row_addr - 20) * 40 + col_addr - 340}),
+		.douta(tempf)
+	);
 	
-
 	wire [11:0] pic_data;
 	wire [11:0] pic_data2;
 	wire [11:0] player_data;
@@ -655,6 +680,9 @@ module Top(
 	wire [11:0] gift_data;
 	wire [11:0] score_board_number_data;
 	wire [11:0] score_board_title_data;
+	wire [11:0] high_score_number_data;
+	wire [11:0] high_score_title_data;
+	wire [11:0] jump_times_data;
 
 	assign pic_data =  					{temp [7:4], temp [15:12], temp [23:20]};
 	assign pic_data2 = 					{temp2[7:4], temp2[15:12], temp2[23:20]};
@@ -668,7 +696,10 @@ module Top(
 	assign bomb_data = 					{tempa[7:4], tempa[15:12], tempa[23:20]};
 	assign gift_data = 					{tempb[7:4], tempb[15:12], tempb[23:20]};
 	assign score_board_number_data = 	{tempc[7:4], tempc[15:12], tempc[23:20]};
-	assign score_board_title_data  = 	{tempd[7:4], tempd[15:12], tempd[23:20]};
+	assign score_board_title_data = 	{tempd[7:4], tempd[15:12], tempd[23:20]};
+	assign high_score_number_data = 	{tempe[7:4], tempe[15:12], tempe[23:20]};
+	assign high_score_title_data = 		{tempf[7:4], tempf[15:12], tempf[23:20]};
+	assign jump_times_data = 			{tempg[7:4], tempg[15:12], tempg[23:20]};
 
 	wire [9:0] delta_x;
 	wire [8:0] delta_y;
@@ -724,6 +755,9 @@ module Top(
 	wire gift_data_flag;
 	wire score_board_number_data_flag;
 	wire score_board_title_data_flag;
+	wire high_score_number_data_flag;
+	wire high_score_title_data_flag;
+	wire jump_times_data_flag;
 	
 	assign title_data_flag = 
 			((game_mode == START_MODE) 	&& 
@@ -785,8 +819,32 @@ module Top(
 		(row_addr > 20)		&&
 		(row_addr < 40)		&&
 		(score_board_title_data != 12'b1111_0000_0000);
+		
+	assign high_score_number_data_flag = 
+		(col_addr > 380) 	&&
+		(col_addr < 440)	&&
+		(row_addr > 20)		&&
+		(row_addr < 40)		&&
+		(high_score_number_data != 12'b1111_0000_0000);
+		
+	assign high_score_title_data_flag = 
+		(col_addr > 340) 	&&
+		(col_addr < 380)	&&
+		(row_addr > 20)		&&
+		(row_addr < 40)		&&
+		(high_score_title_data != 12'b1111_0000_0000);
+		
+	assign jump_times_data_flag = 
+		(col_addr > 40)		&&
+		(col_addr < 60)		&&
+		(row_addr > 420)	&&
+		(row_addr < 440)	&&
+		(jump_times_data != 12'b1111_0000_0000);
 
 	assign vga_true_data = 
+		jump_times_data_flag		? jump_times_data			: (
+		high_score_title_data_flag  ? high_score_title_data		: (
+		high_score_number_data_flag ? high_score_number_data	: (
 		score_board_title_data_flag ? score_board_title_data 	: (
 		score_board_number_data_flag? score_board_number_data 	: (
 		gift_data_flag				? gift_data					: (
@@ -795,7 +853,7 @@ module Top(
 		gameover_data_flag 			? gameover_data 			: (
 		bomb_data_flag				? bomb_data					: (
 		blocker_data_flag			? blocker_data				: (
-		player_data_flag 			? player_true_data			: pic_data))))))));
+		player_data_flag 			? player_true_data			: pic_data)))))))))));
 			
 	
 	always @(posedge clkdiv[1]) begin
@@ -818,6 +876,12 @@ module Top(
 	wire [3:0] score_100000;
 	wire [3:0] score_1000000;
 	wire [3:0] score_10000000;
+	
+	wire [3:0] jump_times_1;
+	wire [3:0] jump_times_10;
+	
+	assign jump_times_1 = jump_times % 10;
+	assign jump_times_10 = (jump_times % 100) / 10;
 
 	assign score_1 			=  score % 10;
 	assign score_10 		= (score % 100		) / 10;
