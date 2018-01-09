@@ -327,10 +327,10 @@ module Top(
 	task adjust_level;
 
 		begin
-			if (timer > 5000) level <= 5;
-			else if (timer > 4000) level <= 4;
-			else if (timer > 3000) level <= 3;
-			else if (timer > 2000) level <= 2;
+			if (timer > 8000) level <= 5;
+			else if (timer > 5400) level <= 4;
+			else if (timer > 4000) level <= 3;
+			else if (timer > 2400) level <= 2;
 			else if (timer > 1000) level <= 1;
 		end
 
@@ -573,6 +573,8 @@ module Top(
 	wire [23:0] tempe;
 	wire [23:0] tempf;
 	wire [23:0] tempg;
+	wire [23:0] temph;
+	wire [23:0] tempi;
 
 	wire [10:0] calculated_x;
 	assign calculated_x = (col_addr + x_offset) % 640;
@@ -637,6 +639,10 @@ module Top(
 		(col_addr > 40 && col_addr < 50) ? (jump_times_10* 10 + col_addr - 40 + (row_addr - 420) * 100) : (
 		(col_addr > 50 && col_addr < 60) ? (jump_times_1 *10 + col_addr - 50 + (row_addr - 420) * 100) : 0);
 
+	wire [11:0] level_number_addr;
+	assign level_number_addr = 
+		(col_addr > 80 && col_addr < 90) ? ((level + 1) * 10 + col_addr - 80 + (row_addr - 20) * 100) : 0;
+	
 	numbersip number_instance (
 	  .clka(clkdiv[1]), // input clka
 	  .addra(score_number_addr), // input [11 : 0] addra
@@ -654,6 +660,12 @@ module Top(
 		.addra(jump_times_number_addr),
 		.douta(tempg)
 	);
+	
+	numbersip level_number_instance (
+		.clka(clkdiv[1]),
+		.addra(level_number_addr),
+		.douta(tempi)
+	);
 
 	scoretitleip score_title_instance (
 	  .clka(clkdiv[1]), // input clka
@@ -665,6 +677,12 @@ module Top(
 		.clka(clkdiv[1]),
 		.addra({(row_addr - 20) * 40 + col_addr - 340}),
 		.douta(tempf)
+	);
+	
+	levelip level_title_instance (
+	  .clka(clkdiv[1]), // input clka
+	  .addra({(row_addr - 20) * 60 + col_addr - 20}), // input [10 : 0] addra
+	  .douta(temph) // output [23 : 0] douta
 	);
 	
 	wire [11:0] pic_data;
@@ -683,6 +701,8 @@ module Top(
 	wire [11:0] high_score_number_data;
 	wire [11:0] high_score_title_data;
 	wire [11:0] jump_times_data;
+	wire [11:0] level_title_data;
+	wire [11:0] level_number_data;
 
 	assign pic_data =  					{temp [7:4], temp [15:12], temp [23:20]};
 	assign pic_data2 = 					{temp2[7:4], temp2[15:12], temp2[23:20]};
@@ -700,6 +720,8 @@ module Top(
 	assign high_score_number_data = 	{tempe[7:4], tempe[15:12], tempe[23:20]};
 	assign high_score_title_data = 		{tempf[7:4], tempf[15:12], tempf[23:20]};
 	assign jump_times_data = 			{tempg[7:4], tempg[15:12], tempg[23:20]};
+	assign level_title_data = 			{temph[7:4], temph[15:12], temph[23:20]};
+	assign level_number_data = 			{tempi[7:4], tempi[15:12], tempi[23:20]};
 
 	wire [9:0] delta_x;
 	wire [8:0] delta_y;
@@ -758,6 +780,8 @@ module Top(
 	wire high_score_number_data_flag;
 	wire high_score_title_data_flag;
 	wire jump_times_data_flag;
+	wire level_title_data_flag;
+	wire level_number_data_flag;
 	
 	assign title_data_flag = 
 			((game_mode == START_MODE) 	&& 
@@ -840,8 +864,24 @@ module Top(
 		(row_addr > 420)	&&
 		(row_addr < 440)	&&
 		(jump_times_data != 12'b1111_0000_0000);
+		
+	assign level_title_data_flag = 
+		(col_addr > 20) 	&&
+		(col_addr < 80)		&&
+		(row_addr > 20)		&&
+		(row_addr < 40)		&&
+		(level_title_data != 12'b1111_0000_0000);
+		
+	assign level_number_data_flag =
+		(col_addr > 80) 	&&
+		(col_addr < 90)		&&
+		(row_addr > 20)		&&
+		(row_addr < 40)		&&
+		(level_number_data != 12'b1111_0000_0000);
 
 	assign vga_true_data = 
+		level_title_data_flag		? level_title_data			: (
+		level_number_data_flag		? level_number_data			: (
 		jump_times_data_flag		? jump_times_data			: (
 		high_score_title_data_flag  ? high_score_title_data		: (
 		high_score_number_data_flag ? high_score_number_data	: (
@@ -853,7 +893,7 @@ module Top(
 		gameover_data_flag 			? gameover_data 			: (
 		bomb_data_flag				? bomb_data					: (
 		blocker_data_flag			? blocker_data				: (
-		player_data_flag 			? player_true_data			: pic_data)))))))))));
+		player_data_flag 			? player_true_data			: pic_data)))))))))))));
 			
 	
 	always @(posedge clkdiv[1]) begin
